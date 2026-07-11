@@ -485,11 +485,13 @@ function planTab(t){
       }
     }
     const time=multi&&cur!==p.start?(p.type==="stay"&&cur===p.end?"départ":"toute la journée"):(p.time||"—");
+    const le=p.expId?t.expenses.find(x=>x.id===p.expId):null;
     return `<div class="tl-item">
       <div class="tl-time">${time}</div>
       <div class="tl-mid"><div class="tl-dot">${ty.i}</div>${last?"":'<div class="tl-line"></div>'}</div>
-      <button class="tl-body" style="border:none;background:none;text-align:left" onclick="planForm('${p.id}')">
-        <div class="t ell">${esc(p.title)}</div><div class="s">${esc(p.note||ty.l)}${span}</div>
+      <button class="tl-body" style="border:none;background:none;text-align:left;display:flex;justify-content:space-between;gap:8px;align-items:flex-start" onclick="planForm('${p.id}')">
+        <span style="min-width:0"><span class="t ell" style="display:block">${esc(p.title)}</span><span class="s">${esc(p.note||ty.l)}${span}</span></span>
+        ${le?`<span class="amt small" style="color:var(--accent-text);white-space:nowrap">${money(t,le.amount)}</span>`:""}
       </button></div>`;
   }).join(""):`<div class="empty" style="padding:30px 20px"><div class="big">🗓️</div><div>Rien de prévu ce jour</div></div>`;
   return strip+head+list+`<button class="btn ghost" style="margin-top:4px" onclick="planForm()">＋ Ajouter au programme</button>`;
@@ -652,11 +654,18 @@ window.delTrip=function(id){
 
 /* ---- plan form ---- */
 let PF={};
+function mapTypeToCat(ty){ return ({travel:"transport",stay:"stay",activity:"activities",food:"food",other:"other"})[ty]||"other"; }
 window.planForm=function(id){
   const t=trip(); const days=tripDays(t);
   const p=id?t.plan.find(x=>x.id===id):null;
   const def=days[S.dayIdx]||days[0]||iso(new Date());
-  PF={span:(p&&p.end&&p.end!==p.start)?"multi":"single", type:p?p.type:"activity"};
+  const linked=(p&&p.expId)?t.expenses.find(x=>x.id===p.expId):null;
+  PF={span:(p&&p.end&&p.end!==p.start)?"multi":"single", type:p?p.type:"activity",
+      exp:!!linked,
+      expAmt:linked?linked.amount:"",
+      expCat:linked?linked.cat:mapTypeToCat(p?p.type:"activity"),
+      expPaidBy:linked?linked.paidBy:t.people[0].id,
+      expSplit:linked?((linked.split&&linked.split.length)?linked.split.slice():t.people.map(x=>x.id)):t.people.map(x=>x.id)};
   drawPlanForm(t,p,def);
 };
 function drawPlanForm(t,p,def){
@@ -673,11 +682,42 @@ function drawPlanForm(t,p,def){
     </div>
     <div id="p-dates">${planDates(PF.span,start,end,p)}</div>
     <label class="fld"><span class="lbl">Notes (facultatif)</span><textarea class="in" id="p-note" placeholder="Réservation, adresse…">${p?esc(p.note||""):""}</textarea></label>
+    <label class="fld"><span class="lbl">Dépense liée (facultatif)</span></label>
+    <div class="seg" id="p-exp-seg">
+      <button class="${!PF.exp?"on":""}" onclick="pfExpToggle(event,false)">Aucune</button>
+      <button class="${PF.exp?"on":""}" onclick="pfExpToggle(event,true)">Ajouter une dépense</button>
+    </div>
+    <div id="p-exp">${PF.exp?planExpFields(t):""}</div>
     <div class="rowbtns">
       ${p?`<button class="btn danger" style="flex:0 0 auto;width:auto;padding:13px 16px" onclick="delPlan('${p.id}')">Supprimer</button>`:""}
       <button class="btn" onclick="savePlan('${p?p.id:""}','${def}')">${p?"Enregistrer":"Ajouter"}</button>
     </div>`);
+  if(PF.exp) pfeShare();
 }
+function planExpFields(t){
+  return `<label class="fld"><span class="lbl">Montant</span><input class="in" id="pe-amt" type="number" inputmode="decimal" placeholder="0,00" value="${PF.expAmt||""}" oninput="pfeShare()"></label>
+    <label class="fld"><span class="lbl">Catégorie</span></label>
+    <div class="chips" id="pe-cats">${Object.keys(CATS).map(k=>`<button class="chip ${PF.expCat===k?"on":""}" onclick="pfeCat(event,'${k}')">${CATS[k].i} ${CATS[k].l}</button>`).join("")}</div>
+    <label class="fld"><span class="lbl">Payé par</span></label>
+    <div class="chips" id="pe-payer">${t.people.map(p=>`<button class="pay ${PF.expPaidBy===p.id?"on":""}" onclick="pfePayer(event,'${p.id}')">${esc(p.name)}</button>`).join("")}</div>
+    <label class="fld"><span class="lbl">Partagé entre</span></label>
+    <div id="pe-split">${t.people.map(p=>peSplitRow(p)).join("")}</div>
+    <div class="tiny muted" id="pe-share" style="margin-top:6px"></div>`;
+}
+function peSplitRow(p){ const on=PF.expSplit.includes(p.id);
+  return `<button class="selrow" style="border:none;width:100%" onclick="pfeSplit('${p.id}')" type="button">
+    <span style="display:flex;align-items:center;gap:10px"><span class="av">${initials(p.name)}</span>${esc(p.name)}</span>
+    <span class="check ${on?"on":""}">${on?"✓":""}</span></button>`; }
+window.pfExpToggle=(ev,on)=>{ PF.exp=on;
+  document.querySelectorAll("#p-exp-seg button").forEach(b=>b.classList.remove("on")); ev.currentTarget.classList.add("on");
+  document.getElementById("p-exp").innerHTML=on?planExpFields(trip()):""; if(on) pfeShare(); };
+window.pfeCat=(ev,k)=>{ PF.expCat=k; document.querySelectorAll("#pe-cats .chip").forEach(c=>c.classList.remove("on")); ev.currentTarget.classList.add("on"); };
+window.pfePayer=(ev,id)=>{ PF.expPaidBy=id; document.querySelectorAll("#pe-payer .pay").forEach(c=>c.classList.remove("on")); ev.currentTarget.classList.add("on"); };
+window.pfeSplit=id=>{ const i=PF.expSplit.indexOf(id); if(i>=0){ if(PF.expSplit.length>1) PF.expSplit.splice(i,1); } else PF.expSplit.push(id);
+  document.getElementById("pe-split").innerHTML=trip().people.map(p=>peSplitRow(p)).join(""); pfeShare(); };
+window.pfeShare=()=>{ const el=document.getElementById("pe-share"); if(!el) return; const t=trip();
+  const amt=parseFloat(val("pe-amt"))||0; const n=PF.expSplit.length||1;
+  el.textContent=amt?`${money(t,amt/n)} chacun · ${n} ${n===1?"personne":"personnes"}`:`Partagé entre ${n} ${n===1?"personne":"personnes"}`; };
 function planDates(span,start,end,p){
   if(span==="single") return `<div class="two">
     <label class="fld"><span class="lbl">Date</span><input class="in" id="p-start" type="date" value="${start}"></label>
@@ -701,12 +741,24 @@ window.savePlan=function(id,def){
   const time=val("p-time")||"";
   let p=id?t.plan.find(x=>x.id===id):null;
   if(p){ Object.assign(p,{title,type:PF.type,note:val("p-note").trim(),time,start,end}); }
-  else{ t.plan.push({id:uid(),title,type:PF.type,note:val("p-note").trim(),time,start,end}); }
+  else{ p={id:uid(),title,type:PF.type,note:val("p-note").trim(),time,start,end}; t.plan.push(p); }
+  // optional linked expense
+  const amt=parseFloat(val("pe-amt"))||0;
+  if(PF.exp && amt>0){
+    const split=PF.expSplit.length?PF.expSplit.slice():t.people.map(x=>x.id);
+    let e=p.expId?t.expenses.find(x=>x.id===p.expId):null;
+    if(e){ Object.assign(e,{title,amount:amt,cat:PF.expCat,paidBy:PF.expPaidBy,split,date:start}); }
+    else{ const eid=uid(); t.expenses.push({id:eid,title,amount:amt,cat:PF.expCat,paidBy:PF.expPaidBy,split,date:start}); p.expId=eid; }
+  } else if(p.expId){
+    t.expenses=t.expenses.filter(x=>x.id!==p.expId); delete p.expId;
+  }
   // jump to the start day
   const days=tripDays(t); const idx=days.indexOf(start); if(idx>=0) S.dayIdx=idx;
   save(); closeSheet(); render();
 };
-window.delPlan=function(id){ const t=trip(); t.plan=t.plan.filter(x=>x.id!==id); save(); closeSheet(); render(); };
+window.delPlan=function(id){ const t=trip(); const p=t.plan.find(x=>x.id===id);
+  if(p&&p.expId) t.expenses=t.expenses.filter(x=>x.id!==p.expId);
+  t.plan=t.plan.filter(x=>x.id!==id); save(); closeSheet(); render(); };
 
 /* ---- expense form ---- */
 let EF={};
