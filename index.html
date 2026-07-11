@@ -154,6 +154,9 @@
    ========================================================= */
 const SUPABASE_URL="https://nryrdivaqtyzmxifcact.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_IpSBu2T7UAYlhUZ0NDPNqA_truxV5sj";
+// Only these emails may sign in. Real enforcement is in Supabase (server-side);
+// this list just gives a friendly message. Leave empty [] to allow anyone.
+const ALLOWED_EMAILS=["sitts21@gmail.com","juliette.giraudon@gmail.com"];
 
 /* ---------- storage ---------- */
 const KEY="mytrip.v1";
@@ -266,7 +269,11 @@ const Cloud={
     window.addEventListener("focus",()=>{ if(this.user) this.pull().then(()=>{ if(!SHEET) render(); }); });
   },
   async onAuthChanged(){
+    if(this.user && ALLOWED_EMAILS.length && !ALLOWED_EMAILS.map(e=>e.toLowerCase()).includes((this.user.email||"").toLowerCase())){
+      await this.signOut(); this.blocked=true; this.user=null; S.view="auth"; render(); return;
+    }
     if(this.user){
+      this.blocked=false;
       this.status="online";
       if(this._localBackup===null){ this._localBackup=JSON.stringify(DB.trips); }
       try{ await this.client.rpc("claim_invites"); }catch(e){}
@@ -344,7 +351,7 @@ function renderAuth(){
     <div class="screen" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-bottom:24px">
       <div style="font-size:52px">🧳</div>
       <div class="title-lg" style="margin:6px 0 4px">MyTrip</div>
-      <div class="muted" style="margin-bottom:26px">Sign in to sync your trips and share them with friends.</div>
+      <div class="muted" style="margin-bottom:26px">Invite-only. Sign in with your invited email to sync and share your trips.</div>
       <div class="card" style="padding:18px;text-align:left">
         <label class="fld" style="margin-top:0"><span class="lbl">Email</span>
           <input class="in" id="auth-email" type="email" inputmode="email" placeholder="you@email.com"></label>
@@ -357,7 +364,9 @@ function renderAuth(){
 window.doSignIn=async function(){
   const email=val("auth-email").trim();
   const msg=document.getElementById("auth-msg"), btn=document.getElementById("auth-btn");
-  if(!/.+@.+\..+/.test(email)){ msg.textContent="Enter a valid email."; return; }
+  if(!/.+@.+\..+/.test(email)){ msg.style.color="var(--danger)"; msg.textContent="Enter a valid email."; return; }
+  if(ALLOWED_EMAILS.length && !ALLOWED_EMAILS.map(e=>e.toLowerCase()).includes(email.toLowerCase())){
+    msg.style.color="var(--danger)"; msg.textContent="This app is invite-only, and that email isn't on the guest list."; return; }
   btn.textContent="Sending…"; btn.disabled=true;
   const {error}=await Cloud.signIn(email);
   if(error){ msg.style.color="var(--danger)"; msg.textContent=error; btn.textContent="Email me a sign-in link"; btn.disabled=false; }
