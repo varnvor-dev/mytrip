@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<title>MyTrip</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧳</text></svg>">
+<style>
+  :root{
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-text:#4338ca;
+    --bg:#f6f7f9; --surface:#ffffff; --surface-2:#f1f2f4;
+    --text:#1a1a1f; --text-2:#6b6f76; --text-3:#9aa0a8;
+    --border:#e6e7ea; --border-2:#d9dbdf;
+    --success:#0f9d58; --success-soft:#e6f4ea;
+    --danger:#dc2626; --danger-soft:#fdeaea;
+    --radius:14px; --shadow:0 1px 3px rgba(0,0,0,.06);
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --accent:#818cf8; --accent-soft:#242346; --accent-text:#a5b4fc;
+      --bg:#0f1013; --surface:#191a1f; --surface-2:#232429;
+      --text:#f2f3f5; --text-2:#a1a6ad; --text-3:#71767d;
+      --border:#2b2c32; --border-2:#3a3b42;
+      --success:#34d399; --success-soft:#0f2e22;
+      --danger:#f87171; --danger-soft:#3a1414;
+      --shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:480px; margin:0 auto; min-height:100vh; background:var(--bg); position:relative; overflow:hidden}
+  .screen{padding:0 16px calc(96px + var(--safe-b)); animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h1,h2,h3{margin:0; font-weight:600}
+  button{font-family:inherit; cursor:pointer}
+  input,select,textarea{font-family:inherit; font-size:16px}
+  .muted{color:var(--text-2)} .small{font-size:13px} .tiny{font-size:12px}
+
+  /* top bar */
+  .topbar{position:sticky; top:0; z-index:20; background:var(--bg); padding:12px 0 6px; display:flex; align-items:center; gap:10px}
+  .topbar .grow{flex:1; min-width:0}
+  .iconbtn{width:38px; height:38px; border-radius:50%; border:none; background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:var(--shadow)}
+  .iconbtn.accent{background:var(--accent); color:#fff}
+  .title-lg{font-size:24px; font-weight:700; letter-spacing:-.02em}
+  .title-md{font-size:18px; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+  /* cards */
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+  .trip-card{padding:16px; margin-bottom:12px; display:block; width:100%; text-align:left; border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow)}
+  .badge{font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; white-space:nowrap}
+  .badge.active{background:var(--success-soft); color:var(--success)}
+  .badge.plan{background:var(--surface-2); color:var(--text-2)}
+  .badge.past{background:var(--surface-2); color:var(--text-3)}
+  .bar{height:7px; background:var(--surface-2); border-radius:20px; overflow:hidden; margin-top:4px}
+  .bar > span{display:block; height:100%; background:var(--accent); border-radius:20px; transition:width .3s}
+  .bar > span.over{background:var(--danger)}
+
+  /* tab bar */
+  .tabbar{position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto; background:var(--surface); border-top:1px solid var(--border); display:flex; padding-bottom:var(--safe-b); z-index:30}
+  .tabbar button{flex:1; border:none; background:none; padding:9px 0 8px; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--text-3); font-size:11px; font-weight:500}
+  .tabbar button .ic{font-size:22px; line-height:1}
+  .tabbar button.on{color:var(--accent)}
+
+  /* date strip */
+  .strip{display:flex; gap:8px; overflow-x:auto; padding:6px 0 12px; scrollbar-width:none}
+  .strip::-webkit-scrollbar{display:none}
+  .daypill{flex:0 0 auto; width:54px; padding:8px 0; border-radius:14px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); text-align:center; box-shadow:var(--shadow)}
+  .daypill.on{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .daypill .wd{font-size:11px; opacity:.9}
+  .daypill .dn{font-size:18px; font-weight:700; line-height:1.2}
+  .daypill .mo{font-size:10px; opacity:.9}
+
+  /* timeline */
+  .tl-item{display:flex; gap:10px; align-items:flex-start}
+  .tl-time{min-width:46px; text-align:right; font-size:11px; color:var(--accent-text); padding-top:7px; font-weight:600}
+  .tl-mid{display:flex; flex-direction:column; align-items:center; align-self:stretch}
+  .tl-dot{width:30px; height:30px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:15px; flex:0 0 auto}
+  .tl-line{flex:1; width:1.5px; background:var(--border); min-height:8px}
+  .tl-body{flex:1; padding-bottom:16px; min-width:0}
+  .tl-body .t{font-size:15px; font-weight:600}
+  .tl-body .s{font-size:12px; color:var(--text-2)}
+
+  /* rows */
+  .row{display:flex; align-items:center; gap:11px; padding:12px 0; border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row .ico{width:34px; height:34px; border-radius:10px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:16px; flex:0 0 auto}
+  .row .grow{flex:1; min-width:0}
+  .row .amt{font-weight:600; white-space:nowrap}
+  .ell{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:13px 14px; flex:1; box-shadow:var(--shadow)}
+  .stat .l{font-size:12px; color:var(--text-2)}
+  .stat .v{font-size:22px; font-weight:700; letter-spacing:-.02em; margin-top:2px}
+
+  .sectlabel{font-size:12px; color:var(--text-2); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin:18px 2px 8px}
+
+  .btn{display:block; width:100%; padding:13px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600}
+  .btn.sec{background:var(--surface); color:var(--accent); border:1px solid var(--border-2)}
+  .btn.ghost{background:var(--surface); color:var(--text); border:1px dashed var(--border-2)}
+  .btn.danger{background:var(--danger-soft); color:var(--danger)}
+
+  .empty{text-align:center; color:var(--text-3); padding:48px 20px; display:flex; flex-direction:column; align-items:center; gap:8px}
+  .empty .big{font-size:40px}
+
+  /* avatar */
+  .av{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 auto}
+
+  /* sheet / modal */
+  .scrim{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:50; display:flex; align-items:flex-end; justify-content:center; animation:fade .15s}
+  .sheet{background:var(--surface); width:100%; max-width:480px; border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; padding:8px 16px calc(24px + var(--safe-b)); animation:up .22s ease}
+  @keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+  .grab{width:38px;height:4px;background:var(--border-2);border-radius:4px;margin:8px auto 12px}
+  .sheet h2{font-size:19px; margin-bottom:4px}
+  label.fld{display:block; margin-top:14px}
+  label.fld .lbl{font-size:13px; color:var(--text-2); font-weight:500; margin-bottom:5px; display:block}
+  .in{width:100%; padding:11px 12px; border-radius:11px; border:1px solid var(--border-2); background:var(--surface); color:var(--text)}
+  .in:focus{outline:none; border-color:var(--accent)}
+  textarea.in{resize:vertical; min-height:52px}
+  .two{display:flex; gap:10px}
+  .two > *{flex:1; min-width:0}
+  .chips{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{padding:8px 12px; border-radius:20px; border:1px solid var(--border-2); background:var(--surface); color:var(--text-2); font-size:13px; display:inline-flex; align-items:center; gap:5px}
+  .chip.on{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-text); font-weight:600}
+  .seg{display:flex; background:var(--surface-2); border-radius:11px; padding:3px}
+  .seg button{flex:1; padding:8px; border:none; border-radius:8px; background:transparent; color:var(--text-2); font-size:13px; font-weight:500}
+  .seg button.on{background:var(--surface); color:var(--text); box-shadow:var(--shadow)}
+  .note{font-size:12px; color:var(--accent-text); margin-top:8px}
+  .rowbtns{display:flex; gap:10px; margin-top:20px}
+  .rowbtns .btn{flex:1}
+  .link{color:var(--accent); background:none; border:none; font-size:14px; font-weight:600; padding:6px}
+  .selrow{display:flex; align-items:center; justify-content:space-between; padding:11px 12px; border:1px solid var(--border); border-radius:11px; margin-top:8px; background:var(--surface)}
+  .check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+  .check.on{background:var(--accent);border-color:var(--accent)}
+  .pay{font-size:12px;color:var(--text-2);padding:3px 8px;border-radius:8px;border:1px solid var(--border-2)}
+  .pay.on{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   CLOUD SYNC CONFIG  —  leave both blank to run offline only.
+   To turn on accounts + sharing, paste your Supabase project
+   URL and anon (public) key below. See SETUP-GUIDE.md.
+   ========================================================= */
+const SUPABASE_URL="https://nryrdivaqtyzmxifcact.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_IpSBu2T7UAYlhUZ0NDPNqA_truxV5sj";
+
+/* ---------- storage ---------- */
+const KEY="mytrip.v1";
+let DB=load();
+function load(){
+  try{const r=JSON.parse(localStorage.getItem(KEY)); if(r&&r.trips) return r;}catch(e){}
+  return {trips:[], seeded:false};
+}
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){} Cloud.touch(); }
+const uid=()=>Math.random().toString(36).slice(2,10);
+
+/* ---------- seed sample trip on first run ---------- */
+if(!DB.seeded){
+  DB.seeded=true;
+  const p1=uid(),p2=uid(),p3=uid(),p4=uid();
+  DB.trips.push({
+    id:uid(), name:"Lisbon getaway", start:"2026-08-03", end:"2026-08-11",
+    currency:"$", budget:2000,
+    people:[{id:p1,name:"You"},{id:p2,name:"Sara"},{id:p3,name:"Ravi"},{id:p4,name:"Mia"}],
+    plan:[
+      {id:uid(),title:"Flight TP442",type:"travel",note:"Gatwick → Lisbon",time:"08:30",start:"2026-08-04",end:"2026-08-04"},
+      {id:uid(),title:"Hotel Baixa",type:"stay",note:"Check-in · 3 nights",time:"13:00",start:"2026-08-04",end:"2026-08-06"},
+      {id:uid(),title:"Alfama walking tour",type:"activity",note:"Meet at cathedral",time:"16:00",start:"2026-08-04",end:"2026-08-04"},
+      {id:uid(),title:"Dinner",type:"food",note:"Time Out Market",time:"20:00",start:"2026-08-04",end:"2026-08-04"},
+      {id:uid(),title:"Sintra day trip",type:"activity",note:"Train from Rossio",time:"11:00",start:"2026-08-05",end:"2026-08-05"}
+    ],
+    expenses:[
+      {id:uid(),title:"Flights",cat:"transport",amount:480,paidBy:p1,split:[p1,p2,p3,p4],date:"2026-08-04"},
+      {id:uid(),title:"Hotel Baixa",cat:"stay",amount:420,paidBy:p2,split:[p1,p2,p3,p4],date:"2026-08-04"},
+      {id:uid(),title:"Dinner · Time Out",cat:"food",amount:96,paidBy:p1,split:[p1,p2,p3,p4],date:"2026-08-04"},
+      {id:uid(),title:"Airport taxi",cat:"transport",amount:32,paidBy:p2,split:[p1,p2,p3,p4],date:"2026-08-04"},
+      {id:uid(),title:"Sintra tickets",cat:"activities",amount:130,paidBy:p3,split:[p1,p2,p3,p4],date:"2026-08-05"},
+      {id:uid(),title:"Groceries",cat:"food",amount:82,paidBy:p1,split:[p1,p2,p3,p4],date:"2026-08-05"}
+    ]
+  });
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+}
+
+/* ---------- helpers ---------- */
+const TYPES={travel:{i:"✈️",l:"Travel"},stay:{i:"🏨",l:"Stay"},activity:{i:"🎟️",l:"Activity"},food:{i:"🍽️",l:"Food"},other:{i:"📍",l:"Other"}};
+const CATS={transport:{i:"✈️",l:"Transport"},stay:{i:"🏨",l:"Stay"},food:{i:"🍽️",l:"Food"},activities:{i:"🎟️",l:"Activities"},shopping:{i:"🛍️",l:"Shopping"},other:{i:"💳",l:"Other"}};
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const WDL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function pd(s){ if(!s) return null; const[y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function iso(dt){ return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0"); }
+function fmtRange(a,b){ const A=pd(a),B=pd(b); if(!A) return ""; const y=B?B.getFullYear():A.getFullYear();
+  if(!B||a===b) return MON[A.getMonth()]+" "+A.getDate()+", "+y;
+  if(A.getMonth()===B.getMonth()) return MON[A.getMonth()]+" "+A.getDate()+" – "+B.getDate()+", "+y;
+  return MON[A.getMonth()]+" "+A.getDate()+" – "+MON[B.getMonth()]+" "+B.getDate()+", "+y; }
+function daysBetween(a,b){ return Math.round((pd(b)-pd(a))/86400000); }
+function tripDays(t){ const out=[]; if(!t.start||!t.end) return out; let c=pd(t.start),e=pd(t.end);
+  while(c<=e){ out.push(iso(c)); c=new Date(c.getFullYear(),c.getMonth(),c.getDate()+1); } return out; }
+function money(t,n){ const s=(Math.round(n*100)/100); const str=Number.isInteger(s)?s.toLocaleString():s.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); return (t.currency||"$")+str; }
+function initials(n){ return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
+function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+const spent=t=>t.expenses.reduce((s,e)=>s+e.amount,0);
+function statusOf(t){ if(!t.end) return"plan"; const today=iso(new Date()); if(t.start&&today<t.start) return"plan"; if(today>t.end) return"past"; return"active"; }
+
+/* ---------- split math ---------- */
+function balances(t){
+  const bal={}; t.people.forEach(p=>bal[p.id]=0);
+  t.expenses.forEach(e=>{
+    if(bal[e.paidBy]===undefined) return;
+    bal[e.paidBy]+=e.amount;
+    const grp=(e.split&&e.split.length)?e.split:t.people.map(p=>p.id);
+    const share=e.amount/grp.length;
+    grp.forEach(id=>{ if(bal[id]!==undefined) bal[id]-=share; });
+  });
+  return bal; // >0 owed to them, <0 they owe
+}
+function settle(t){
+  const bal=balances(t);
+  const cred=[],deb=[];
+  Object.keys(bal).forEach(id=>{ const v=Math.round(bal[id]*100)/100;
+    if(v>0.005) cred.push({id,v}); else if(v<-0.005) deb.push({id,v:-v}); });
+  cred.sort((a,b)=>b.v-a.v); deb.sort((a,b)=>b.v-a.v);
+  const tx=[]; let i=0,j=0;
+  while(i<deb.length&&j<cred.length){
+    const pay=Math.min(deb[i].v,cred[j].v);
+    tx.push({from:deb[i].id,to:cred[j].id,amt:Math.round(pay*100)/100});
+    deb[i].v-=pay; cred[j].v-=pay;
+    if(deb[i].v<0.005)i++; if(cred[j].v<0.005)j++;
+  }
+  return tx;
+}
+
+/* =========================================================
+   CLOUD  —  Supabase sync layer (no-op when unconfigured)
+   ========================================================= */
+const Cloud={
+  enabled: !!(SUPABASE_URL && SUPABASE_ANON_KEY),
+  client:null, user:null, ready:false, status:"offline", _timer:null, _localBackup:null,
+  async init(){
+    if(!this.enabled){ this.status="offline"; return; }
+    this.status="connecting";
+    try{
+      const mod=await import("https://esm.sh/@supabase/supabase-js@2");
+      this.client=mod.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    }catch(e){ this.status="error"; this.error="Couldn't load the sync library. Check your connection."; render(); return; }
+    const {data}=await this.client.auth.getSession();
+    this.user=data.session?data.session.user:null;
+    this.client.auth.onAuthStateChange((_ev,session)=>{
+      const was=this.user?this.user.id:null;
+      this.user=session?session.user:null;
+      if((this.user?this.user.id:null)!==was){ this.onAuthChanged(); }
+    });
+    this.ready=true;
+    await this.onAuthChanged();
+    window.addEventListener("focus",()=>{ if(this.user) this.pull().then(()=>{ if(!SHEET) render(); }); });
+  },
+  async onAuthChanged(){
+    if(this.user){
+      this.status="online";
+      if(this._localBackup===null){ this._localBackup=JSON.stringify(DB.trips); }
+      try{ await this.client.rpc("claim_invites"); }catch(e){}
+      await this.pull();
+      this.subscribe();
+      if(S.view==="auth"){ S.view="home"; }
+    }else{
+      this.status="signedout";
+      if(this._localBackup!==null){ try{DB.trips=JSON.parse(this._localBackup);}catch(e){} this._localBackup=null; }
+      S.view="auth";
+    }
+    render();
+  },
+  async pull(){
+    if(!this.user) return;
+    const {data,error}=await this.client.from("trips").select("id,data,updated_at").order("updated_at",{ascending:false});
+    if(error){ this.status="error"; this.error=error.message; return; }
+    DB.trips=(data||[]).map(r=>Object.assign({},r.data,{id:r.id}));
+    try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+  },
+  subscribe(){
+    if(this._chan) return;
+    this._chan=this.client.channel("trips-rt")
+      .on("postgres_changes",{event:"*",schema:"public",table:"trips"},()=>{
+        clearTimeout(this._rt); this._rt=setTimeout(()=>{ this.pull().then(()=>{ if(!SHEET) render(); }); },400);
+      }).subscribe();
+  },
+  touch(){ // debounced push of the open trip
+    if(!this.user||!this.enabled) return;
+    const t=DB.trips.find(x=>x.id===S.tripId); if(!t) return;
+    clearTimeout(this._timer); const snap=t;
+    this._timer=setTimeout(()=>this.push(snap),500);
+  },
+  async push(t){
+    if(!this.user) return;
+    const {id,...data}=t;
+    const {error}=await this.client.from("trips").upsert({id,owner:this.user.id,data,updated_at:new Date().toISOString()});
+    if(error){ this.status="error"; this.error=error.message; render(); }
+  },
+  async remove(id){ if(this.user) await this.client.from("trips").delete().eq("id",id); },
+  async members(tripId){
+    if(!this.user) return [];
+    const {data}=await this.client.from("trip_members").select("email,user_id,role").eq("trip_id",tripId);
+    return data||[];
+  },
+  async invite(tripId,email){
+    if(!this.user) return {error:"Not signed in"};
+    const {error}=await this.client.from("trip_members").insert({trip_id:tripId,email:email.toLowerCase().trim()});
+    return {error:error?error.message:null};
+  },
+  async signIn(email){
+    const {error}=await this.client.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split("#")[0]}});
+    return {error:error?error.message:null};
+  },
+  async signOut(){ await this.client.auth.signOut(); }
+};
+
+/* ---------- app state ---------- */
+let S={view:"home", tripId:null, tab:"plan", dayIdx:0};
+const app=document.getElementById("app");
+const trip=()=>DB.trips.find(t=>t.id===S.tripId);
+function go(v,extra={}){ S={...S,view:v,...extra}; render(); window.scrollTo(0,0); }
+
+/* ---------- render ---------- */
+function render(){
+  if(S.view==="auth") return renderAuth();
+  if(S.view==="home") return renderHome();
+  const t=trip(); if(!t){ S.view="home"; return renderHome(); }
+  renderTrip(t);
+}
+
+/* ---------- auth screen ---------- */
+function renderAuth(){
+  app.innerHTML=`
+    <div class="screen" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-bottom:24px">
+      <div style="font-size:52px">🧳</div>
+      <div class="title-lg" style="margin:6px 0 4px">MyTrip</div>
+      <div class="muted" style="margin-bottom:26px">Sign in to sync your trips and share them with friends.</div>
+      <div class="card" style="padding:18px;text-align:left">
+        <label class="fld" style="margin-top:0"><span class="lbl">Email</span>
+          <input class="in" id="auth-email" type="email" inputmode="email" placeholder="you@email.com"></label>
+        <button class="btn" style="margin-top:16px" onclick="doSignIn()" id="auth-btn">Email me a sign-in link</button>
+        <div class="tiny muted" id="auth-msg" style="margin-top:10px;text-align:center"></div>
+      </div>
+      <button class="link" style="margin-top:18px" onclick="useOffline()">Continue offline instead</button>
+    </div>`;
+}
+window.doSignIn=async function(){
+  const email=val("auth-email").trim();
+  const msg=document.getElementById("auth-msg"), btn=document.getElementById("auth-btn");
+  if(!/.+@.+\..+/.test(email)){ msg.textContent="Enter a valid email."; return; }
+  btn.textContent="Sending…"; btn.disabled=true;
+  const {error}=await Cloud.signIn(email);
+  if(error){ msg.style.color="var(--danger)"; msg.textContent=error; btn.textContent="Email me a sign-in link"; btn.disabled=false; }
+  else{ msg.style.color="var(--success)"; msg.innerHTML="Check <b>"+esc(email)+"</b> for a sign-in link, then reopen it here."; btn.textContent="Link sent ✓"; }
+};
+window.useOffline=function(){ Cloud.status="offline-guest"; S.view="home"; render(); };
+
+function renderHome(){
+  const ts=DB.trips.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||""));
+  const order={active:0,plan:1,past:2};
+  ts.sort((a,b)=>order[statusOf(a)]-order[statusOf(b)]);
+  app.innerHTML=`
+    <div class="screen" style="padding-bottom:24px">
+      <div class="topbar">
+        <div class="grow"><div class="title-lg">My trips</div></div>
+        ${Cloud.enabled?`<button class="iconbtn" onclick="accountSheet()" aria-label="Account">${Cloud.user?"👤":"🔑"}</button>`:""}
+        <button class="iconbtn accent" onclick="tripForm()" aria-label="New trip">＋</button>
+      </div>
+      ${syncBanner()}
+      ${ts.length?ts.map(tripCard).join(""):`
+        <div class="empty"><div class="big">🧳</div><div>No trips yet</div>
+        <button class="btn" style="width:auto;padding:11px 20px;margin-top:6px" onclick="tripForm()">Create a trip</button></div>`}
+    </div>`;
+}
+function tripCard(t){
+  const st=statusOf(t), sp=spent(t), b=t.budget||0;
+  const pct=b?Math.min(100,Math.round(sp/b*100)):0;
+  const lbl={active:"Active",plan:"Planning",past:"Past"}[st];
+  return `<button class="trip-card" onclick="openTrip('${t.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span style="font-size:17px;font-weight:700;letter-spacing:-.01em" class="ell">${esc(t.name)}</span>
+      <span class="badge ${st}">${lbl}</span>
+    </div>
+    <div class="small muted" style="margin:5px 0 ${b?"11":"0"}px">📅 ${fmtRange(t.start,t.end)} &nbsp;·&nbsp; 👥 ${t.people.length} ${t.people.length===1?"person":"people"}</div>
+    ${b?`<div class="bar"><span class="${sp>b?"over":""}" style="width:${pct}%"></span></div>
+      <div style="display:flex;justify-content:space-between" class="tiny muted"><span>${money(t,sp)} of ${money(t,b)}</span><span style="color:var(--accent)">Open ›</span></div>`:""}
+  </button>`;
+}
+window.openTrip=id=>{ S.tripId=id; S.tab="plan"; S.dayIdx=0; go("trip"); };
+
+function syncBanner(){
+  if(!Cloud.enabled) return "";
+  if(Cloud.status==="online") return "";
+  if(Cloud.status==="connecting") return `<div class="tiny muted" style="text-align:center;padding:4px 0 8px">Connecting…</div>`;
+  if(Cloud.status==="error") return `<div class="card" style="padding:10px 12px;margin-bottom:12px;background:var(--danger-soft);border-color:transparent"><span class="small" style="color:var(--danger)">⚠️ ${esc(Cloud.error||"Sync error")}</span></div>`;
+  if(Cloud.status==="offline-guest") return `<button class="card" style="padding:10px 12px;margin-bottom:12px;width:100%;text-align:left;border:1px dashed var(--border-2);background:var(--surface)"><span class="small">☁️ Working offline · <span style="color:var(--accent)" onclick="S.view='auth';render()">sign in to sync</span></span></button>`;
+  return "";
+}
+window.accountSheet=async function(){
+  const u=Cloud.user;
+  openSheet(`<h2>Account</h2>
+    ${u?`<div class="row" style="border:none"><div class="av" style="width:40px;height:40px;font-size:15px">${initials(u.email)}</div>
+      <div class="grow"><div style="font-weight:600" class="ell">${esc(u.email)}</div><div class="tiny muted">Synced · ${DB.trips.length} trip${DB.trips.length===1?"":"s"}</div></div></div>
+      <button class="btn sec" style="margin-top:16px" onclick="doSignOut()">Sign out</button>`
+    :`<div class="muted small">You're working offline. Trips are saved on this device only.</div>
+      <button class="btn" style="margin-top:16px" onclick="closeSheet();S.view='auth';render()">Sign in to sync</button>`}`);
+};
+window.doSignOut=async function(){ closeSheet(); await Cloud.signOut(); };
+
+/* ---------- trip shell ---------- */
+function renderTrip(t){
+  let body="";
+  if(S.tab==="plan") body=planTab(t);
+  else if(S.tab==="budget") body=budgetTab(t);
+  else body=splitTab(t);
+  app.innerHTML=`
+    <div class="screen">
+      <div class="topbar">
+        <button class="iconbtn" onclick="go('home')" aria-label="Back">‹</button>
+        <div class="grow" style="min-width:0">
+          <div class="title-md">${esc(t.name)}</div>
+          <div class="tiny muted ell">📅 ${fmtRange(t.start,t.end)} · 👥 ${t.people.length}</div>
+        </div>
+        <button class="iconbtn" onclick="tripForm('${t.id}')" aria-label="Trip settings">⋯</button>
+      </div>
+      ${body}
+    </div>
+    <nav class="tabbar">
+      <button class="${S.tab==="plan"?"on":""}" onclick="setTab('plan')"><span class="ic">🗓️</span>Plan</button>
+      <button class="${S.tab==="budget"?"on":""}" onclick="setTab('budget')"><span class="ic">👛</span>Budget</button>
+      <button class="${S.tab==="split"?"on":""}" onclick="setTab('split')"><span class="ic">🧾</span>Split</button>
+    </nav>`;
+}
+window.setTab=t=>{ S.tab=t; render(); window.scrollTo(0,0); };
+window.go=go;
+
+/* ---------- PLAN ---------- */
+function planTab(t){
+  const days=tripDays(t);
+  if(!days.length) return `<div class="empty"><div class="big">🗓️</div><div>Set trip dates to start planning</div>
+    <button class="btn sec" style="width:auto;padding:10px 18px" onclick="tripForm('${t.id}')">Add dates</button></div>`;
+  if(S.dayIdx>=days.length) S.dayIdx=0;
+  const cur=days[S.dayIdx], dt=pd(cur);
+  const items=t.plan.filter(p=>cur>=p.start&&cur<=(p.end||p.start))
+    .sort((a,b)=>(a.time||"~").localeCompare(b.time||"~"));
+  const strip=`<div class="strip">${days.map((d,i)=>{const x=pd(d);return `
+    <button class="daypill ${i===S.dayIdx?"on":""}" onclick="setDay(${i})">
+      <div class="wd">${WD[x.getDay()]}</div><div class="dn">${x.getDate()}</div><div class="mo">${MON[x.getMonth()]}</div>
+    </button>`;}).join("")}</div>`;
+  const head=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:2px 2px 12px">
+    <span style="font-size:16px;font-weight:600">${WDL[dt.getDay()]}, ${MON[dt.getMonth()]} ${dt.getDate()}</span>
+    <span class="tiny muted">Day ${S.dayIdx+1} of ${days.length}</span></div>`;
+  const list=items.length?items.map((p,idx)=>{
+    const ty=TYPES[p.type]||TYPES.other; const last=idx===items.length-1;
+    const multi=p.end&&p.end!==p.start;
+    let span=""; if(multi){ const n=daysBetween(p.start,p.end)+1; const which=daysBetween(p.start,cur)+1; span=` · night ${which} of ${n}`; }
+    const time=multi&&cur!==p.start?"all day":(p.time||"—");
+    return `<div class="tl-item">
+      <div class="tl-time">${time}</div>
+      <div class="tl-mid"><div class="tl-dot">${ty.i}</div>${last?"":'<div class="tl-line"></div>'}</div>
+      <button class="tl-body" style="border:none;background:none;text-align:left" onclick="planForm('${p.id}')">
+        <div class="t ell">${esc(p.title)}</div><div class="s">${esc(p.note||ty.l)}${span}</div>
+      </button></div>`;
+  }).join(""):`<div class="empty" style="padding:30px 20px"><div class="big">🗓️</div><div>Nothing planned for this day</div></div>`;
+  return strip+head+list+`<button class="btn ghost" style="margin-top:4px" onclick="planForm()">＋ Add to plan</button>`;
+}
+window.setDay=i=>{ S.dayIdx=i; render(); };
+
+/* ---------- BUDGET ---------- */
+function budgetTab(t){
+  const sp=spent(t), b=t.budget||0, rem=b-sp;
+  const pct=b?Math.min(100,Math.round(sp/b*100)):0;
+  const byCat={};
+  t.expenses.forEach(e=>{ byCat[e.cat]=(byCat[e.cat]||0)+e.amount; });
+  const cats=Object.keys(byCat).sort((a,b2)=>byCat[b2]-byCat[a]);
+  const budgetBlock=b?`
+    <div class="two" style="margin:8px 0 6px">
+      <div class="stat"><div class="l">Spent</div><div class="v">${money(t,sp)}</div></div>
+      <div class="stat"><div class="l">${rem>=0?"Remaining":"Over budget"}</div><div class="v" style="color:${rem>=0?"var(--success)":"var(--danger)"}">${money(t,Math.abs(rem))}</div></div>
+    </div>
+    <div class="bar" style="height:9px"><span class="${sp>b?"over":""}" style="width:${pct}%"></span></div>
+    <div class="tiny muted" style="margin-top:5px">${pct}% of ${money(t,b)} budget used</div>`
+    :`<div class="card" style="padding:16px;margin-top:8px;text-align:center">
+       <div style="font-size:22px;font-weight:700">${money(t,sp)}</div>
+       <div class="tiny muted">total spent · no budget set</div>
+       <button class="link" onclick="tripForm('${t.id}')">Set a budget</button></div>`;
+  const catBlock=cats.length?`<div class="sectlabel">By category</div>
+    <div class="card" style="padding:2px 14px">${cats.map(c=>{const info=CATS[c]||CATS.other;
+      return `<div class="row"><div class="ico">${info.i}</div><div class="grow ell">${info.l}</div><div class="amt">${money(t,byCat[c])}</div></div>`;}).join("")}</div>`:"";
+  const recent=t.expenses.slice().reverse().slice(0,20);
+  const recentBlock=recent.length?`<div class="sectlabel">All expenses</div>
+    <div class="card" style="padding:2px 14px">${recent.map(e=>expenseRow(t,e)).join("")}</div>`:
+    `<div class="empty"><div class="big">👛</div><div>No expenses yet</div></div>`;
+  return budgetBlock+catBlock+recentBlock+`<button class="btn" style="margin-top:16px" onclick="expenseForm()">＋ Add expense</button>`;
+}
+function expenseRow(t,e){
+  const info=CATS[e.cat]||CATS.other;
+  const payer=t.people.find(p=>p.id===e.paidBy);
+  const n=(e.split&&e.split.length)?e.split.length:t.people.length;
+  return `<button class="row" style="border:none;background:none;width:100%;text-align:left;border-bottom:1px solid var(--border)" onclick="expenseForm('${e.id}')">
+    <div class="ico">${info.i}</div>
+    <div class="grow"><div class="ell" style="font-weight:500">${esc(e.title)}</div>
+      <div class="tiny muted">${payer?esc(payer.name):"?"} paid · split ${n} way${n>1?"s":""}</div></div>
+    <div class="amt">${money(t,e.amount)}</div></button>`;
+}
+
+/* ---------- SPLIT ---------- */
+function splitTab(t){
+  const you=t.people[0];
+  const bal=balances(t);
+  const yb=you?Math.round(bal[you.id]*100)/100:0;
+  const tx=settle(t);
+  const head=`<div class="card" style="padding:16px;margin:8px 0 6px;background:var(--accent-soft);border-color:transparent">
+    <div class="small" style="color:var(--accent-text)">${yb>=0?"You are owed":"You owe"}</div>
+    <div style="font-size:26px;font-weight:700;color:var(--accent-text)">${money(t,Math.abs(yb))}</div></div>`;
+  const people=`<div class="sectlabel">Balances</div><div class="card" style="padding:2px 14px">${t.people.map(p=>{
+    const v=Math.round(bal[p.id]*100)/100;
+    const txt=Math.abs(v)<0.005?"settled":(v>0?"gets back "+money(t,v):"owes "+money(t,-v));
+    const col=Math.abs(v)<0.005?"var(--text-3)":(v>0?"var(--success)":"var(--danger)");
+    return `<div class="row"><div class="av">${initials(p.name)}</div><div class="grow ell">${esc(p.name)}${p.id===you?.id?" (you)":""}</div>
+      <div class="small" style="color:${col};font-weight:600">${txt}</div></div>`;}).join("")}</div>`;
+  const settleBlock=tx.length?`<div class="sectlabel">Suggested settle-up</div>
+    <div class="card" style="padding:2px 14px">${tx.map(x=>{const f=t.people.find(p=>p.id===x.from),to=t.people.find(p=>p.id===x.to);
+      return `<div class="row"><div class="ico">💸</div><div class="grow small"><b>${esc(f.name)}</b> → <b>${esc(to.name)}</b></div><div class="amt">${money(t,x.amt)}</div></div>`;}).join("")}</div>`
+    :`<div class="card" style="padding:18px;text-align:center;margin-top:12px" class="muted"><div style="font-size:26px">✅</div><div class="small muted">Everyone's settled up</div></div>`;
+  const exp=t.expenses.slice().reverse();
+  const expBlock=`<div class="sectlabel">Shared expenses</div>${exp.length?`<div class="card" style="padding:2px 14px">${exp.map(e=>expenseRow(t,e)).join("")}</div>`:`<div class="empty" style="padding:24px"><div>No shared expenses yet</div></div>`}`;
+  return head+people+settleBlock+expBlock+`<button class="btn" style="margin-top:16px" onclick="expenseForm()">＋ Add expense</button>`;
+}
+
+/* ---------- sheets ---------- */
+let SHEET=null;
+function openSheet(html){
+  closeSheet();
+  SHEET=document.createElement("div"); SHEET.className="scrim";
+  SHEET.onclick=e=>{ if(e.target===SHEET) closeSheet(); };
+  SHEET.innerHTML=`<div class="sheet"><div class="grab"></div>${html}</div>`;
+  document.body.appendChild(SHEET);
+}
+function closeSheet(){ if(SHEET){ SHEET.remove(); SHEET=null; } }
+window.closeSheet=closeSheet;
+
+/* ---- trip form ---- */
+window.tripForm=function(id){
+  const t=id?DB.trips.find(x=>x.id===id):null;
+  const cur=t?t.currency:"$";
+  openSheet(`
+    <h2>${t?"Edit trip":"New trip"}</h2>
+    <label class="fld"><span class="lbl">Trip name</span><input class="in" id="f-name" placeholder="Weekend in Rome" value="${t?esc(t.name):""}"></label>
+    <div class="two">
+      <label class="fld"><span class="lbl">Start date</span><input class="in" id="f-start" type="date" value="${t?t.start:""}"></label>
+      <label class="fld"><span class="lbl">End date</span><input class="in" id="f-end" type="date" value="${t?t.end:""}"></label>
+    </div>
+    <div class="two">
+      <label class="fld"><span class="lbl">Currency</span>
+        <select class="in" id="f-cur">${["$","€","£","¥","₹","A$","C$"].map(c=>`<option ${c===cur?"selected":""}>${c}</option>`).join("")}</select></label>
+      <label class="fld"><span class="lbl">Budget (optional)</span><input class="in" id="f-budget" type="number" inputmode="decimal" placeholder="0" value="${t&&t.budget?t.budget:""}"></label>
+    </div>
+    <label class="fld"><span class="lbl">Travellers (comma separated)</span>
+      <input class="in" id="f-people" placeholder="You, Sara, Ravi" value="${t?esc(t.people.map(p=>p.name).join(", ")):"You"}"></label>
+    <div class="tiny muted" style="margin-top:5px">First name is treated as “you” for balances.</div>
+    ${(t&&Cloud.user)?`<div class="sectlabel">Shared with</div>
+      <div id="members" class="tiny muted">Loading…</div>
+      <div class="two" style="align-items:flex-end">
+        <label class="fld" style="flex:2"><span class="lbl">Invite by email</span><input class="in" id="inv-email" type="email" placeholder="friend@email.com"></label>
+        <button class="btn sec" style="margin-top:14px;flex:1" onclick="doInvite('${t.id}')">Invite</button>
+      </div>
+      <div class="tiny" id="inv-msg" style="margin-top:6px"></div>`
+      :(t&&Cloud.enabled&&!Cloud.user)?`<div class="tiny muted" style="margin-top:12px">☁️ Sign in to invite people to this trip.</div>`:""}
+    <div class="rowbtns">
+      ${t?`<button class="btn danger" style="flex:0 0 auto;width:auto;padding:13px 16px" onclick="delTrip('${t.id}')">Delete</button>`:""}
+      <button class="btn" onclick="saveTrip('${t?t.id:""}')">${t?"Save":"Create trip"}</button>
+    </div>`);
+  if(t&&Cloud.user) loadMembers(t.id);
+};
+async function loadMembers(id){
+  const el=document.getElementById("members"); if(!el) return;
+  const ms=await Cloud.members(id);
+  if(!ms.length){ el.textContent="Just you so far."; return; }
+  el.innerHTML=ms.map(m=>{const who=m.email||"member"; const st=m.user_id?"joined":"invited";
+    return `<div class="row" style="padding:8px 0"><div class="av">${initials(who)}</div><div class="grow ell">${esc(who)}</div><span class="badge ${st==="joined"?"active":"plan"}">${st}</span></div>`;}).join("");
+}
+window.doInvite=async function(id){
+  const email=val("inv-email").trim(); const msg=document.getElementById("inv-msg");
+  if(!/.+@.+\..+/.test(email)){ msg.style.color="var(--danger)"; msg.textContent="Enter a valid email."; return; }
+  msg.style.color="var(--text-2)"; msg.textContent="Inviting…";
+  const {error}=await Cloud.invite(id,email);
+  if(error){ msg.style.color="var(--danger)"; msg.textContent=error; }
+  else{ msg.style.color="var(--success)"; msg.innerHTML="Invited <b>"+esc(email)+"</b>. They'll see it when they sign in with that email.";
+    document.getElementById("inv-email").value=""; loadMembers(id); }
+};
+window.saveTrip=function(id){
+  const name=val("f-name").trim()||"Untitled trip";
+  const start=val("f-start"), end=val("f-end");
+  const cur=val("f-cur"); const budget=parseFloat(val("f-budget"))||0;
+  const names=val("f-people").split(",").map(s=>s.trim()).filter(Boolean);
+  if(!names.length) names.push("You");
+  let t=id?DB.trips.find(x=>x.id===id):null;
+  if(t){
+    t.name=name; t.start=start; t.end=end; t.currency=cur; t.budget=budget;
+    // reconcile people: keep existing by name, add new, drop removed
+    const old=t.people; const kept=[];
+    names.forEach(nm=>{ const ex=old.find(p=>p.name===nm&&!kept.includes(p)); kept.push(ex||{id:uid(),name:nm}); });
+    const keptIds=kept.map(p=>p.id);
+    t.people=kept;
+    // clean expenses referencing removed people
+    t.expenses=t.expenses.filter(e=>keptIds.includes(e.paidBy));
+    t.expenses.forEach(e=>{ e.split=(e.split||[]).filter(pid=>keptIds.includes(pid)); if(!e.split.length) e.split=keptIds.slice(); });
+  }else{
+    t={id:uid(),name,start,end,currency:cur,budget,people:names.map(n=>({id:uid(),name:n})),plan:[],expenses:[]};
+    DB.trips.push(t); S.tripId=t.id; S.tab="plan"; S.dayIdx=0; S.view="trip";
+  }
+  save(); closeSheet(); render();
+};
+window.delTrip=function(id){
+  if(!confirm("Delete this trip and all its data?")) return;
+  DB.trips=DB.trips.filter(t=>t.id!==id);
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+  Cloud.remove(id);
+  closeSheet(); go("home");
+};
+
+/* ---- plan form ---- */
+let PF={};
+window.planForm=function(id){
+  const t=trip(); const days=tripDays(t);
+  const p=id?t.plan.find(x=>x.id===id):null;
+  const def=days[S.dayIdx]||days[0]||iso(new Date());
+  PF={span:(p&&p.end&&p.end!==p.start)?"multi":"single", type:p?p.type:"activity"};
+  drawPlanForm(t,p,def);
+};
+function drawPlanForm(t,p,def){
+  const start=p?p.start:def, end=p?(p.end||p.start):def;
+  openSheet(`
+    <h2>${p?"Edit plan item":"Add to plan"}</h2>
+    <label class="fld"><span class="lbl">Title</span><input class="in" id="p-title" placeholder="Hotel, flight, dinner…" value="${p?esc(p.title):""}"></label>
+    <label class="fld"><span class="lbl">Type</span></label>
+    <div class="chips" id="p-types">${Object.keys(TYPES).map(k=>`<button class="chip ${PF.type===k?"on":""}" onclick="pfType(event,'${k}')">${TYPES[k].i} ${TYPES[k].l}</button>`).join("")}</div>
+    <label class="fld"><span class="lbl">Duration</span></label>
+    <div class="seg">
+      <button class="${PF.span==="single"?"on":""}" onclick="pfSpan(event,'single')">Single day</button>
+      <button class="${PF.span==="multi"?"on":""}" onclick="pfSpan(event,'multi')">Multiple days</button>
+    </div>
+    <div id="p-dates">${planDates(PF.span,start,end,p)}</div>
+    <label class="fld"><span class="lbl">Notes (optional)</span><textarea class="in" id="p-note" placeholder="Booking ref, address…">${p?esc(p.note||""):""}</textarea></label>
+    <div class="rowbtns">
+      ${p?`<button class="btn danger" style="flex:0 0 auto;width:auto;padding:13px 16px" onclick="delPlan('${p.id}')">Delete</button>`:""}
+      <button class="btn" onclick="savePlan('${p?p.id:""}','${def}')">${p?"Save":"Add to plan"}</button>
+    </div>`);
+}
+function planDates(span,start,end,p){
+  if(span==="single") return `<div class="two">
+    <label class="fld"><span class="lbl">Date</span><input class="in" id="p-start" type="date" value="${start}"></label>
+    <label class="fld"><span class="lbl">Time</span><input class="in" id="p-time" type="time" value="${p&&p.time?p.time:""}"></label></div>`;
+  return `<div class="two">
+    <label class="fld"><span class="lbl">Start date</span><input class="in" id="p-start" type="date" value="${start}"></label>
+    <label class="fld"><span class="lbl">End date</span><input class="in" id="p-end" type="date" value="${end}"></label></div>
+    <input type="hidden" id="p-time" value="${p&&p.time?p.time:""}">
+    <div class="note">Shows on every day it spans.</div>`;
+}
+window.pfType=(ev,k)=>{ PF.type=k; document.querySelectorAll("#p-types .chip").forEach(c=>c.classList.remove("on")); ev.currentTarget.classList.add("on"); };
+window.pfSpan=(ev,s)=>{ PF.span=s;
+  const st=val("p-start")||iso(new Date()); const en=(document.getElementById("p-end")&&val("p-end"))||st;
+  document.querySelectorAll(".seg button").forEach(b=>b.classList.remove("on")); ev.currentTarget.classList.add("on");
+  document.getElementById("p-dates").innerHTML=planDates(s,st,en,{time:val("p-time")}); };
+window.savePlan=function(id,def){
+  const t=trip();
+  const title=val("p-title").trim(); if(!title){ alert("Add a title"); return; }
+  const start=val("p-start")||def; let end=start;
+  if(PF.span==="multi"){ end=val("p-end")||start; if(end<start) end=start; }
+  const time=val("p-time")||"";
+  let p=id?t.plan.find(x=>x.id===id):null;
+  if(p){ Object.assign(p,{title,type:PF.type,note:val("p-note").trim(),time,start,end}); }
+  else{ t.plan.push({id:uid(),title,type:PF.type,note:val("p-note").trim(),time,start,end}); }
+  // jump to the start day
+  const days=tripDays(t); const idx=days.indexOf(start); if(idx>=0) S.dayIdx=idx;
+  save(); closeSheet(); render();
+};
+window.delPlan=function(id){ const t=trip(); t.plan=t.plan.filter(x=>x.id!==id); save(); closeSheet(); render(); };
+
+/* ---- expense form ---- */
+let EF={};
+window.expenseForm=function(id){
+  const t=trip(); const e=id?t.expenses.find(x=>x.id===id):null;
+  EF={cat:e?e.cat:"food", paidBy:e?e.paidBy:t.people[0].id, split:e?(e.split&&e.split.length?e.split.slice():t.people.map(p=>p.id)):t.people.map(p=>p.id)};
+  drawExpenseForm(t,e);
+};
+function drawExpenseForm(t,e){
+  openSheet(`
+    <h2>${e?"Edit expense":"Add expense"}</h2>
+    <label class="fld"><span class="lbl">Description</span><input class="in" id="e-title" placeholder="Dinner, taxi, hotel…" value="${e?esc(e.title):""}"></label>
+    <div class="two">
+      <label class="fld"><span class="lbl">Amount</span><input class="in" id="e-amt" type="number" inputmode="decimal" placeholder="0.00" value="${e?e.amount:""}"></label>
+      <label class="fld"><span class="lbl">Date</span><input class="in" id="e-date" type="date" value="${e?e.date:(t.start||iso(new Date()))}"></label>
+    </div>
+    <label class="fld"><span class="lbl">Category</span></label>
+    <div class="chips" id="e-cats">${Object.keys(CATS).map(k=>`<button class="chip ${EF.cat===k?"on":""}" onclick="efCat(event,'${k}')">${CATS[k].i} ${CATS[k].l}</button>`).join("")}</div>
+    <label class="fld"><span class="lbl">Paid by</span></label>
+    <div class="chips" id="e-payer">${t.people.map(p=>`<button class="pay ${EF.paidBy===p.id?"on":""}" onclick="efPayer(event,'${p.id}')">${esc(p.name)}</button>`).join("")}</div>
+    <label class="fld"><span class="lbl">Split between</span></label>
+    <div id="e-split">${t.people.map(p=>splitRow(p)).join("")}</div>
+    <div class="tiny muted" id="e-share" style="margin-top:6px"></div>
+    <div class="rowbtns">
+      ${e?`<button class="btn danger" style="flex:0 0 auto;width:auto;padding:13px 16px" onclick="delExpense('${e.id}')">Delete</button>`:""}
+      <button class="btn" onclick="saveExpense('${e?e.id:""}')">${e?"Save":"Add expense"}</button>
+    </div>`);
+  updateShare();
+}
+function splitRow(p){
+  const on=EF.split.includes(p.id);
+  return `<button class="selrow" style="border:none;width:100%" onclick="efSplit('${p.id}')" type="button">
+    <span style="display:flex;align-items:center;gap:10px"><span class="av">${initials(p.name)}</span>${esc(p.name)}</span>
+    <span class="check ${on?"on":""}">${on?"✓":""}</span></button>`;
+}
+window.efCat=(ev,k)=>{ EF.cat=k; document.querySelectorAll("#e-cats .chip").forEach(c=>c.classList.remove("on")); ev.currentTarget.classList.add("on"); };
+window.efPayer=(ev,id)=>{ EF.paidBy=id; document.querySelectorAll("#e-payer .pay").forEach(c=>c.classList.remove("on")); ev.currentTarget.classList.add("on"); };
+window.efSplit=id=>{ const i=EF.split.indexOf(id); if(i>=0){ if(EF.split.length>1) EF.split.splice(i,1); } else EF.split.push(id);
+  const t=trip(); document.getElementById("e-split").innerHTML=t.people.map(p=>splitRow(p)).join(""); updateShare(); };
+function updateShare(){ const el=document.getElementById("e-share"); if(!el) return; const t=trip();
+  const amt=parseFloat(val("e-amt"))||0; const n=EF.split.length||1;
+  el.textContent=amt?`${money(t,amt/n)} each · ${n} ${n===1?"person":"people"}`:`Splitting between ${n} ${n===1?"person":"people"}`; }
+document.addEventListener("input",e=>{ if(e.target&&e.target.id==="e-amt") updateShare(); });
+window.saveExpense=function(id){
+  const t=trip();
+  const title=val("e-title").trim()||"Expense";
+  const amount=parseFloat(val("e-amt")); if(!(amount>0)){ alert("Enter an amount"); return; }
+  const date=val("e-date")||t.start; const split=EF.split.length?EF.split.slice():t.people.map(p=>p.id);
+  let e=id?t.expenses.find(x=>x.id===id):null;
+  if(e){ Object.assign(e,{title,amount,cat:EF.cat,paidBy:EF.paidBy,split,date}); }
+  else{ t.expenses.push({id:uid(),title,amount,cat:EF.cat,paidBy:EF.paidBy,split,date}); }
+  save(); closeSheet(); render();
+};
+window.delExpense=function(id){ const t=trip(); t.expenses=t.expenses.filter(x=>x.id!==id); save(); closeSheet(); render(); };
+
+/* ---------- util ---------- */
+function val(id){ const el=document.getElementById(id); return el?el.value:""; }
+
+/* ---------- boot ---------- */
+if(Cloud.enabled){ render(); Cloud.init(); }
+else { render(); }
+</script>
+</body>
+</html>
