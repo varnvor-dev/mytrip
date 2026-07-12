@@ -69,8 +69,11 @@
   .tabbar button.on{color:var(--accent)}
 
   /* date strip */
-  .strip{display:flex; gap:8px; overflow-x:auto; padding:6px 0 12px; scrollbar-width:none}
+  .stripwrap{display:flex; align-items:center; gap:6px}
+  .strip{display:flex; gap:8px; overflow-x:auto; padding:6px 0 12px; scrollbar-width:none; scroll-behavior:smooth; flex:1}
   .strip::-webkit-scrollbar{display:none}
+  .daynav{flex:0 0 auto; width:30px; height:52px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); border-radius:12px; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow)}
+  .daynav:disabled{opacity:.3}
   .daypill{flex:0 0 auto; width:54px; padding:8px 0; border-radius:14px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); text-align:center; box-shadow:var(--shadow)}
   .daypill.on{background:var(--accent); color:#fff; border-color:var(--accent)}
   .daypill .wd{font-size:11px; opacity:.9}
@@ -451,6 +454,7 @@ function renderTrip(t){
       <button class="${S.tab==="budget"?"on":""}" onclick="setTab('budget')"><span class="ic">👛</span>Budget</button>
       <button class="${S.tab==="split"?"on":""}" onclick="setTab('split')"><span class="ic">🧾</span>Partage</button>
     </nav>`;
+  if(S.tab==="plan") centerActiveDay();
 }
 window.setTab=t=>{ S.tab=t; render(); window.scrollTo(0,0); };
 window.go=go;
@@ -464,10 +468,15 @@ function planTab(t){
   const cur=days[S.dayIdx], dt=pd(cur);
   const items=t.plan.filter(p=>cur>=p.start&&cur<=(p.end||p.start))
     .sort((a,b)=>(a.time||"~").localeCompare(b.time||"~"));
-  const strip=`<div class="strip">${days.map((d,i)=>{const x=pd(d);return `
+  const pills=days.map((d,i)=>{const x=pd(d);return `
     <button class="daypill ${i===S.dayIdx?"on":""}" onclick="setDay(${i})">
       <div class="wd">${WD[x.getDay()]}</div><div class="dn">${x.getDate()}</div><div class="mo">${MON[x.getMonth()]}</div>
-    </button>`;}).join("")}</div>`;
+    </button>`;}).join("");
+  const strip=`<div class="stripwrap">
+    <button class="daynav" onclick="setDay(${S.dayIdx-1})" ${S.dayIdx<=0?"disabled":""} aria-label="Jour précédent">‹</button>
+    <div class="strip">${pills}</div>
+    <button class="daynav" onclick="setDay(${S.dayIdx+1})" ${S.dayIdx>=days.length-1?"disabled":""} aria-label="Jour suivant">›</button>
+  </div>`;
   const capWd=WDL[dt.getDay()].charAt(0).toUpperCase()+WDL[dt.getDay()].slice(1);
   const head=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin:2px 2px 12px">
     <span style="font-size:16px;font-weight:600">${capWd} ${dt.getDate()} ${MON[dt.getMonth()]}</span>
@@ -496,7 +505,10 @@ function planTab(t){
   }).join(""):`<div class="empty" style="padding:30px 20px"><div class="big">🗓️</div><div>Rien de prévu ce jour</div></div>`;
   return strip+head+list+`<button class="btn ghost" style="margin-top:4px" onclick="planForm()">＋ Ajouter au programme</button>`;
 }
-window.setDay=i=>{ S.dayIdx=i; render(); };
+window.setDay=i=>{ const n=tripDays(trip()).length; S.dayIdx=Math.max(0,Math.min(n-1,i)); render(); };
+function centerActiveDay(){ const strip=document.querySelector(".strip"); if(!strip) return;
+  const on=strip.querySelector(".daypill.on"); if(!on) return;
+  strip.scrollLeft=on.offsetLeft-(strip.clientWidth/2)+(on.offsetWidth/2); }
 
 /* ---------- BUDGET ---------- */
 function budgetTab(t){
