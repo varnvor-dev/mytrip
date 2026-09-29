@@ -295,6 +295,7 @@ const Cloud={
       if(this._localBackup===null){ this._localBackup=JSON.stringify(DB.trips); }
       try{ await this.client.rpc("claim_invites"); }catch(e){}
       await this.pull();
+      await this.flush();
       this.subscribe();
       if(S.view==="auth"){ S.view="home"; }
     }else{
@@ -308,8 +309,17 @@ const Cloud={
     if(!this.user) return;
     const {data,error}=await this.client.from("trips").select("id,data,updated_at").order("updated_at",{ascending:false});
     if(error){ this.status="error"; this.error=error.message; return; }
-    DB.trips=(data||[]).map(r=>Object.assign({},r.data,{id:r.id}));
+    const server=(data||[]).map(r=>Object.assign({},r.data,{id:r.id}));
+    const onServer={}; server.forEach(t=>{ onServer[t.id]=true; });
+    // keep trips this device has that the server has never seen, instead of dropping them
+    const localOnly=DB.trips.filter(t=>!onServer[t.id]);
+    DB.trips=server.concat(localOnly);
     try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}
+    // server copies are now current, so don't re-push them
+    this._pushed=this._pushed||{};
+    server.forEach(t=>{ this._pushed[t.id]=JSON.stringify(t); });
+    // upload anything that only existed locally (e.g. added while signed out)
+    for(const t of localOnly){ await this.push(t); this._pushed[t.id]=JSON.stringify(t); }
   },
   subscribe(){
     if(this._chan) return;
@@ -318,11 +328,21 @@ const Cloud={
         clearTimeout(this._rt); this._rt=setTimeout(()=>{ this.pull().then(()=>{ if(!SHEET) render(); }); },400);
       }).subscribe();
   },
-  touch(){ // debounced push of the open trip
+  touch(){ // debounced push of every trip that changed
     if(!this.user||!this.enabled) return;
-    const t=DB.trips.find(x=>x.id===S.tripId); if(!t) return;
-    clearTimeout(this._timer); const snap=t;
-    this._timer=setTimeout(()=>this.push(snap),500);
+    clearTimeout(this._timer);
+    this._timer=setTimeout(()=>this.flush(),500);
+  },
+  async flush(){
+    if(!this.user) return;
+    this._pushed=this._pushed||{};
+    for(const t of DB.trips.slice()){
+      const j=JSON.stringify(t);
+      if(this._pushed[t.id]!==j){
+        await this.push(t);
+        if(this.status!=="error") this._pushed[t.id]=j;
+      }
+    }
   },
   async push(t){
     if(!this.user) return;
