@@ -216,6 +216,18 @@ function tripDays(t){ const out=[]; if(!t.start||!t.end) return out; let c=pd(t.
 function money(t,n){ const s=(Math.round(n*100)/100); const c=t.currency||"€";
   const str=Number.isInteger(s)?s.toLocaleString("fr-FR"):s.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2});
   return (c==="€"||c==="£")?str+" "+c:c+str; }
+/* parse a user-typed amount: accepts "12,50", "12.50", "1 234,56", "1,234.56" */
+function parseAmount(v){
+  v=String(v==null?"":v).trim().replace(/[\s\u00A0\u202F]/g,"");
+  if(!v) return NaN;
+  const lc=v.lastIndexOf(","), ld=v.lastIndexOf(".");
+  if(lc>-1&&ld>-1){ v = lc>ld ? v.replace(/\./g,"").replace(",",".") : v.replace(/,/g,""); }
+  else if(lc>-1){ v=v.replace(",","."); }
+  const n=parseFloat(v);
+  return isFinite(n)?n:NaN;
+}
+/* render a number back into a text input, French style */
+function amtVal(n){ return (n===null||n===undefined||n==="")?"":String(n).replace(".",","); }
 function initials(n){ return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
 function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 const spent=t=>t.expenses.reduce((s,e)=>s+e.amount,0);
@@ -598,7 +610,7 @@ window.tripForm=function(id){
     <div class="two">
       <label class="fld"><span class="lbl">Devise</span>
         <select class="in" id="f-cur">${["€","$","£","¥","CHF","C$"].map(c=>`<option ${c===cur?"selected":""}>${c}</option>`).join("")}</select></label>
-      <label class="fld"><span class="lbl">Budget (facultatif)</span><input class="in" id="f-budget" type="number" inputmode="decimal" placeholder="0" value="${t&&t.budget?t.budget:""}"></label>
+      <label class="fld"><span class="lbl">Budget (facultatif)</span><input class="in" id="f-budget" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${t&&t.budget?amtVal(t.budget):""}"></label>
     </div>
     <label class="fld"><span class="lbl">Voyageurs (séparés par des virgules)</span>
       <input class="in" id="f-people" placeholder="Moi, Sara, Ravi" value="${t?esc(t.people.map(p=>p.name).join(", ")):"Moi"}"></label>
@@ -636,7 +648,7 @@ window.doInvite=async function(id){
 window.saveTrip=function(id){
   const name=val("f-name").trim()||"Voyage sans titre";
   const start=val("f-start"), end=val("f-end");
-  const cur=val("f-cur"); const budget=parseFloat(val("f-budget"))||0;
+  const cur=val("f-cur"); const budget=parseAmount(val("f-budget"))||0;
   const names=val("f-people").split(",").map(s=>s.trim()).filter(Boolean);
   if(!names.length) names.push("Moi");
   let t=id?DB.trips.find(x=>x.id===id):null;
@@ -674,7 +686,7 @@ window.planForm=function(id){
   const linked=(p&&p.expId)?t.expenses.find(x=>x.id===p.expId):null;
   PF={span:(p&&p.end&&p.end!==p.start)?"multi":"single", type:p?p.type:"activity",
       exp:!!linked,
-      expAmt:linked?linked.amount:"",
+      expAmt:linked?amtVal(linked.amount):"",
       expCat:linked?linked.cat:mapTypeToCat(p?p.type:"activity"),
       expPaidBy:linked?linked.paidBy:t.people[0].id,
       expSplit:linked?((linked.split&&linked.split.length)?linked.split.slice():t.people.map(x=>x.id)):t.people.map(x=>x.id)};
@@ -707,7 +719,7 @@ function drawPlanForm(t,p,def){
   if(PF.exp) pfeShare();
 }
 function planExpFields(t){
-  return `<label class="fld"><span class="lbl">Montant</span><input class="in" id="pe-amt" type="number" inputmode="decimal" placeholder="0,00" value="${PF.expAmt||""}" oninput="pfeShare()"></label>
+  return `<label class="fld"><span class="lbl">Montant</span><input class="in" id="pe-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${amtVal(PF.expAmt)}" oninput="pfeShare()"></label>
     <label class="fld"><span class="lbl">Catégorie</span></label>
     <div class="chips" id="pe-cats">${Object.keys(CATS).map(k=>`<button class="chip ${PF.expCat===k?"on":""}" onclick="pfeCat(event,'${k}')">${CATS[k].i} ${CATS[k].l}</button>`).join("")}</div>
     <label class="fld"><span class="lbl">Payé par</span></label>
@@ -728,7 +740,7 @@ window.pfePayer=(ev,id)=>{ PF.expPaidBy=id; document.querySelectorAll("#pe-payer
 window.pfeSplit=id=>{ const i=PF.expSplit.indexOf(id); if(i>=0){ if(PF.expSplit.length>1) PF.expSplit.splice(i,1); } else PF.expSplit.push(id);
   document.getElementById("pe-split").innerHTML=trip().people.map(p=>peSplitRow(p)).join(""); pfeShare(); };
 window.pfeShare=()=>{ const el=document.getElementById("pe-share"); if(!el) return; const t=trip();
-  const amt=parseFloat(val("pe-amt"))||0; const n=PF.expSplit.length||1;
+  const amt=parseAmount(val("pe-amt"))||0; const n=PF.expSplit.length||1;
   el.textContent=amt?`${money(t,amt/n)} chacun · ${n} ${n===1?"personne":"personnes"}`:`Partagé entre ${n} ${n===1?"personne":"personnes"}`; };
 function planDates(span,start,end,p){
   if(span==="single") return `<div class="two">
@@ -755,7 +767,7 @@ window.savePlan=function(id,def){
   if(p){ Object.assign(p,{title,type:PF.type,note:val("p-note").trim(),time,start,end}); }
   else{ p={id:uid(),title,type:PF.type,note:val("p-note").trim(),time,start,end}; t.plan.push(p); }
   // optional linked expense
-  const amt=parseFloat(val("pe-amt"))||0;
+  const amt=parseAmount(val("pe-amt"))||0;
   if(PF.exp && amt>0){
     const split=PF.expSplit.length?PF.expSplit.slice():t.people.map(x=>x.id);
     let e=p.expId?t.expenses.find(x=>x.id===p.expId):null;
@@ -784,7 +796,7 @@ function drawExpenseForm(t,e){
     <h2>${e?"Modifier la dépense":"Ajouter une dépense"}</h2>
     <label class="fld"><span class="lbl">Description</span><input class="in" id="e-title" placeholder="Dîner, taxi, hôtel…" value="${e?esc(e.title):""}"></label>
     <div class="two">
-      <label class="fld"><span class="lbl">Montant</span><input class="in" id="e-amt" type="number" inputmode="decimal" placeholder="0,00" value="${e?e.amount:""}"></label>
+      <label class="fld"><span class="lbl">Montant</span><input class="in" id="e-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${e?amtVal(e.amount):""}"></label>
       <label class="fld"><span class="lbl">Date</span><input class="in" id="e-date" type="date" value="${e?e.date:(t.start||iso(new Date()))}"></label>
     </div>
     <label class="fld"><span class="lbl">Catégorie</span></label>
@@ -811,13 +823,13 @@ window.efPayer=(ev,id)=>{ EF.paidBy=id; document.querySelectorAll("#e-payer .pay
 window.efSplit=id=>{ const i=EF.split.indexOf(id); if(i>=0){ if(EF.split.length>1) EF.split.splice(i,1); } else EF.split.push(id);
   const t=trip(); document.getElementById("e-split").innerHTML=t.people.map(p=>splitRow(p)).join(""); updateShare(); };
 function updateShare(){ const el=document.getElementById("e-share"); if(!el) return; const t=trip();
-  const amt=parseFloat(val("e-amt"))||0; const n=EF.split.length||1;
+  const amt=parseAmount(val("e-amt"))||0; const n=EF.split.length||1;
   el.textContent=amt?`${money(t,amt/n)} chacun · ${n} ${n===1?"personne":"personnes"}`:`Partagé entre ${n} ${n===1?"personne":"personnes"}`; }
 document.addEventListener("input",e=>{ if(e.target&&e.target.id==="e-amt") updateShare(); });
 window.saveExpense=function(id){
   const t=trip();
   const title=val("e-title").trim()||"Dépense";
-  const amount=parseFloat(val("e-amt")); if(!(amount>0)){ alert("Saisissez un montant"); return; }
+  const amount=parseAmount(val("e-amt")); if(!(amount>0)){ alert("Saisissez un montant"); return; }
   const date=val("e-date")||t.start; const split=EF.split.length?EF.split.slice():t.people.map(p=>p.id);
   let e=id?t.expenses.find(x=>x.id===id):null;
   if(e){ Object.assign(e,{title,amount,cat:EF.cat,paidBy:EF.paidBy,split,date}); }
